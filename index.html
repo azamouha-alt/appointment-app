@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>المساعد الصوتي للمواعيد</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f4f8; --card:#ffffff; --text:#15171c; --muted:#6b7280;
+  --primary:#4338ca; --primary-d:#3730a3; --danger:#dc2626; --success:#059669;
+  --border:#e2e4ea; --accent:#eef0ff; --warn:#d97706;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --card:#1a1d24; --text:#f1f2f5; --muted:#9aa1ad;
+  --primary:#818cf8; --primary-d:#6366f1; --danger:#f87171; --success:#34d399;
+  --border:#2a2e38; --accent:#20243a; --warn:#fbbf24;
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0; background:var(--bg); color:var(--text); font-family:"Segoe UI","Tahoma",Arial,sans-serif; min-height:100vh; padding:16px;}
+.wrap{max-width:760px; margin:0 auto;}
+.topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+h1{font-size:1.3rem; margin:0;}
+.sub{color:var(--muted); font-size:.88rem; margin-bottom:16px;}
+.themeBtn{background:var(--accent); border:1px solid var(--border); border-radius:999px; padding:8px 12px; font-size:1.1rem; cursor:pointer;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;}
+.card h3{margin:0 0 12px; font-size:1rem;}
+.row{display:flex; gap:10px; flex-wrap:wrap;}
+input, select{flex:1; min-width:110px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:.92rem;}
+label{font-size:.8rem; color:var(--muted); display:block; margin-bottom:4px;}
+.field{flex:1; min-width:130px; margin-bottom:10px;}
+button{cursor:pointer; border:none; border-radius:10px; padding:10px 14px; font-size:.88rem; font-weight:600;}
+.btn-primary{background:var(--primary); color:#fff;}
+.btn-primary:hover{background:var(--primary-d);}
+.btn-mic{background:var(--primary); color:#fff; width:100%; padding:14px; font-size:1rem; margin-bottom:8px;}
+.btn-mic.listening{background:var(--danger);}
+.btn-ghost{background:var(--accent); color:var(--primary); border:1px solid var(--primary);}
+.btn-danger{background:transparent; color:var(--danger); border:1px solid var(--danger);}
+.btn-sm{padding:6px 10px; font-size:.78rem;}
+#wizStatus{font-size:.92rem; color:var(--text); min-height:22px; margin:6px 0; font-weight:600;}
+#wizBox{display:none;}
+#wizBox.show{display:block;}
+.reminderRow{display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;}
+.reminderRow input, .reminderRow select{min-width:80px; flex:1;}
+.appt{border:1px solid var(--border); border-right:4px solid var(--primary); border-radius:12px; padding:12px 14px; margin-bottom:10px;}
+.appt-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.appt .title{font-weight:700; font-size:1.02rem;}
+.appt .person{color:var(--primary); font-size:.85rem; font-weight:600; margin-top:2px;}
+.appt .meta{font-size:.82rem; color:var(--muted); margin-top:2px;}
+.appt .reminders{font-size:.75rem; color:var(--success); margin-top:6px; line-height:1.7;}
+.appt .actions{display:flex; gap:6px; margin-top:8px;}
+.empty{text-align:center; color:var(--muted); padding:20px; font-size:.9rem;}
+.overlay{position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
+.overlay.show{display:flex;}
+.modal{background:var(--card); border-radius:16px; padding:22px; max-width:360px; text-align:center; border:1px solid var(--border);}
+.modal h2{margin:0 0 8px; font-size:1.15rem;}
+.modal p{color:var(--muted); margin-bottom:16px;}
+.footer-note{font-size:.72rem; color:var(--muted); text-align:center; margin-top:10px; line-height:1.7;}
+.datalistHint{font-size:.72rem; color:var(--muted); margin-top:-6px; margin-bottom:8px;}
+details summary{cursor:pointer; color:var(--primary); font-weight:600; font-size:.85rem; margin:8px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>🗓️ المساعد الصوتي للمواعيد</h1>
+    <button class="themeBtn" id="themeBtn">🌙</button>
+  </div>
+  <div class="sub">أضف مواعيدك بصوتك بخطوات موجهة، وسيقرأ لك التطبيق صاحب الموعد واسمه عند التذكير.</div>
+
+  <div class="card">
+    <h3>إضافة موعد بالصوت (موجّه خطوة بخطوة)</h3>
+    <button id="micBtn" class="btn-mic">🎤 ابدأ الإضافة الصوتية</button>
+    <div id="wizBox">
+      <div id="wizStatus"></div>
+      <button class="btn-danger btn-sm" id="wizCancel">إلغاء</button>
+    </div>
+    <div class="datalistHint" id="micHint">سيسألك التطبيق: اسم الموعد، ثم صاحب الموعد (أو قل «تخطي»)، ثم اليوم والشهر والسنة، ثم الساعة.</div>
+  </div>
+
+  <div class="card">
+    <h3>إضافة يدوية</h3>
+    <div class="row">
+      <div class="field"><label>اسم الموعد</label><input id="mTitle" placeholder="مثلاً: اجتماع العمل"></div>
+      <div class="field">
+        <label>صاحب الموعد (اختياري)</label>
+        <input id="mPerson" list="contactsList" placeholder="مثلاً: محمد">
+        <datalist id="contactsList"></datalist>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>التاريخ</label><input id="mDate" type="date"></div>
+      <div class="field"><label>الوقت</label><input id="mTime" type="time"></div>
+    </div>
+    <details>
+      <summary>⚙️ تخصيص التنبيهات لهذا الموعد</summary>
+      <div id="formReminders"></div>
+      <button class="btn-ghost btn-sm" id="formAddReminder" type="button">+ إضافة تنبيه</button>
+    </details>
+    <div class="row" style="margin-top:12px;">
+      <button class="btn-primary" id="addManual" style="flex:1;">➕ إضافة الموعد</button>
+      <button class="btn-ghost" id="testVoice">🔊 اختبار الصوت</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ إعدادات التنبيهات الافتراضية</h3>
+    <div class="datalistHint">تُطبَّق هذه الإعدادات تلقائيًا على كل موعد جديد (يمكنك تعديلها لكل موعد على حدة).</div>
+    <div id="settingsReminders"></div>
+    <div class="row">
+      <button class="btn-ghost btn-sm" id="settingsAddReminder" type="button">+ إضافة تنبيه</button>
+      <button class="btn-primary btn-sm" id="settingsSave" type="button">💾 حفظ كإعداد افتراضي</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <strong>المواعيد القادمة</strong>
+      <button class="btn-ghost btn-sm" id="readAll">🔊 اقرأ المواعيد</button>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div class="footer-note">
+    التنبيهات تعمل أثناء فتح التطبيق أو وجوده بالخلفية القريبة على المتصفح. البيانات محفوظة محليًا على هذا الجهاز فقط.
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="ovTitle">⏰ تذكير بموعد</h2>
+    <p id="ovBody"></p>
+    <button class="btn-primary" id="ovDismiss" style="width:100%;">تم، شكرًا</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); }
+  if('Notification' in window && Notification.permission === 'default'){ Notification.requestPermission(); }
+
+  const UNIT_LABELS = {minutes:'دقيقة', hours:'ساعة', days:'يوم'};
+  const UNIT_MS = {minutes:60000, hours:3600000, days:86400000};
+  const STORAGE_APPTS = 'va_appts_v2';
+  const STORAGE_SETTINGS = 'va_settings_v2';
+  const STORAGE_FIRED = 'va_fired_v2';
+
+  let appts = [];
+  let settings = { theme:'system', defaultReminders: defaultTemplate(), contacts: [] };
+  let fired = {};
+
+  function defaultTemplate(){
+    return [
+      {id:rid(), amount:1, unit:'days', repeat:2},
+      {id:rid(), amount:1, unit:'hours', repeat:2},
+      {id:rid(), amount:15, unit:'minutes', repeat:2},
+      {id:rid(), amount:0, unit:'minutes', repeat:4}
+    ];
+  }
+  function rid(){ return 'r'+Date.now()+Math.random().toString(16).slice(2); }
+  function aid(){ return 'a'+Date.now()+Math.random().toString(16).slice(2); }
+
+  function loadAll(){
+    try{ const r = localStorage.getItem(STORAGE_APPTS); appts = r ? JSON.parse(r) : []; }catch(e){ appts=[]; }
+    try{ const r = localStorage.getItem(STORAGE_SETTINGS); if(r) settings = Object.assign(settings, JSON.parse(r)); }catch(e){}
+    try{ const r = localStorage.getItem(STORAGE_FIRED); fired = r ? JSON.parse(r) : {}; }catch(e){ fired={}; }
+  }
+  function saveAppts(){ try{ localStorage.setItem(STORAGE_APPTS, JSON.stringify(appts)); }catch(e){} }
+  function saveSettings(){ try{ localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings)); }catch(e){} }
+  function saveFired(){ try{ localStorage.setItem(STORAGE_FIRED, JSON.stringify(fired)); }catch(e){} }
+
+  // ---------- الثيم ----------
+  const themeBtn = document.getElementById('themeBtn');
+  function applyTheme(){
+    let t = settings.theme;
+    if(t === 'system'){
+      document.documentElement.removeAttribute('data-theme');
+      themeBtn.textContent = window.matchMedia('(prefers-color-scheme: dark)').matches ? '🌙' : '☀️';
+    } else {
+      document.documentElement.setAttribute('data-theme', t);
+      themeBtn.textContent = t === 'dark' ? '🌙' : '☀️';
+    }
+  }
+  themeBtn.addEventListener('click', function(){
+    settings.theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    saveSettings(); applyTheme();
+  });
+
+  // ---------- الصوت (نطق) ----------
+  function detectLang(text){
+    return (/[A-Za-z]/.test(text) && !/[\u0600-\u06FF]/.test(text)) ? 'en-US' : 'ar-SA';
+  }
+  function speakSegments(segments){
+    try{
+      speechSynthesis.cancel ? null : null;
+      segments.forEach(seg=>{
+        if(!seg.text) return;
+        const u = new SpeechSynthesisUtterance(seg.text);
+        u.lang = seg.lang || 'ar-SA';
+        u.rate = 0.95;
+        speechSynthesis.speak(u);
+      });
+    }catch(e){}
+  }
+  function speakArabic(text){ speakSegments([{text, lang:'ar-SA'}]); }
+
+  function pushSystemNotification(title, body, tag){
+    if(!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+    navigator.serviceWorker.ready.then(reg=>{
+      reg.active && reg.active.postMessage({type:'SHOW_NOTIFICATION', title, body, tag});
+    });
+  }
+
+  // ---------- محرر التنبيهات (عام لأي حاوية) ----------
+  function renderReminderEditor(container, reminders, onChange){
+    container.innerHTML = '';
+    reminders.forEach((r, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'reminderRow';
+      row.innerHTML = `
+        <span style="font-size:.8rem;color:var(--muted);">قبل</span>
+        <input type="number" min="0" value="${r.amount}" style="max-width:70px;" data-f="amount">
+        <select data-f="unit">
+          <option value="minutes" ${r.unit==='minutes'?'selected':''}>دقيقة</option>
+          <option value="hours" ${r.unit==='hours'?'selected':''}>ساعة</option>
+          <option value="days" ${r.unit==='days'?'selected':''}>يوم</option>
+        </select>
+        <span style="font-size:.8rem;color:var(--muted);">يتكرر</span>
+        <input type="number" min="1" max="10" value="${r.repeat}" style="max-width:60px;" data-f="repeat">
+        <span style="font-size:.8rem;color:var(--muted);">مرة</span>
+        <button class="btn-danger btn-sm" data-act="del">✕</button>
+      `;
+      row.querySelectorAll('input,select').forEach(inp=>{
+        inp.addEventListener('input', ()=>{
+          const f = inp.getAttribute('data-f');
+          reminders[idx][f] = (f==='unit') ? inp.value : Number(inp.value);
+          onChange && onChange();
+        });
+      });
+      row.querySelector('[data-act="del"]').addEventListener('click', ()=>{
+        reminders.splice(idx,1);
+        renderReminderEditor(container, reminders, onChange);
+        onChange && onChange();
+      });
+      container.appendChild(row);
+    });
+    if(reminders.length === 0){
+      const p = document.createElement('div');
+      p.className = 'datalistHint';
+      p.textContent = 'لا توجد تنبيهات مضافة.';
+      container.appendChild(p);
+    }
+  }
+
+  // --- إعدادات التنبيهات الافتراضية ---
+  const settingsRemindersEl = document.getElementById('settingsReminders');
+  function renderSettingsReminders(){
+    renderReminderEditor(settingsRemindersEl, settings.defaultReminders, null);
+  }
+  document.getElementById('settingsAddReminder').addEventListener('click', ()=>{
+    settings.defaultReminders.push({id:rid(), amount:10, unit:'minutes', repeat:1});
+    renderSettingsReminders();
+  });
+  document.getElementById('settingsSave').addEventListener('click', ()=>{
+    saveSettings();
+    document.getElementById('settingsSave').textContent = '✅ تم الحفظ';
+    setTimeout(()=>{ document.getElementById('settingsSave').textContent = '💾 حفظ كإعداد افتراضي'; }, 1800);
+  });
+
+  // --- تنبيهات نموذج الإضافة اليدوية ---
+  let formReminders = JSON.parse(JSON.stringify(settings.defaultReminders));
+  const formRemindersEl = document.getElementById('formReminders');
+  function renderFormReminders(){ renderReminderEditor(formRemindersEl, formReminders, null); }
+  document.getElementById('formAddReminder').addEventListener('click', ()=>{
+    formReminders.push({id:rid(), amount:10, unit:'minutes', repeat:1});
+    renderFormReminders();
+  });
+
+  // ---------- قوائم جهات الاتصال ----------
+  function refreshContactsDatalist(){
+    const dl = document.getElementById('contactsList');
+    dl.innerHTML = settings.contacts.map(c=>`<option value="${escapeHtml(c)}">`).join('');
+  }
+  function registerContact(name){
+    if(!name) return;
+    if(!settings.contacts.includes(name)){
+      settings.contacts.push(name);
+      saveSettings();
+      refreshContactsDatalist();
+    }
+  }
+
+  // ---------- تنسيق التاريخ ----------
+  function fmtDateTime(d,t){
+    const dt = new Date(d+"T"+t);
+    return dt.toLocaleDateString('ar',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) + " الساعة " +
+           dt.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+  }
+  function reminderLabel(r){
+    if(r.amount === 0) return 'عند الموعد';
+    return `قبل ${r.amount} ${UNIT_LABELS[r.unit]}${r.amount>2 && r.amount<=10 ? (r.unit==='days'?'ام':r.unit==='hours'?'ات':'') : ''}`.trim();
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- عرض القائمة ----------
+  const listEl = document.getElementById('list');
+  function render(){
+    const now = new Date();
+    const upcoming = appts
+      .filter(a => new Date(a.date+"T"+a.time) >= new Date(now.getTime()-60000))
+      .sort((a,b)=> new Date(a.date+"T"+a.time) - new Date(b.date+"T"+b.time));
+
+    if(upcoming.length === 0){
+      listEl.innerHTML = '<div class="empty">لا توجد مواعيد قادمة بعد. أضف واحدًا بالأعلى 👆</div>';
+      return;
+    }
+    listEl.innerHTML = upcoming.map(a => `
+      <div class="appt" data-id="${a.id}">
+        <div class="appt-top">
+          <div>
+            <div class="title">${escapeHtml(a.title)}</div>
+            ${a.person ? `<div class="person">👤 مع ${escapeHtml(a.person)}</div>` : ''}
+            <div class="meta">${fmtDateTime(a.date,a.time)}</div>
+          </div>
+        </div>
+        <div class="reminders">${a.reminders.map(r=>`🔔 ${reminderLabel(r)} (يتكرر ${r.repeat})`).join('<br>')}</div>
+        <div class="actions">
+          <button class="btn-ghost btn-sm" data-act="edit">⚙️ تعديل التنبيهات</button>
+          <button class="btn-danger btn-sm" data-act="del">🗑️ حذف</button>
+        </div>
+        <div class="editArea" style="display:none; margin-top:10px;"></div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.appt').forEach(el=>{
+      const id = el.getAttribute('data-id');
+      const appt = appts.find(x=>x.id===id);
+      el.querySelector('[data-act="del"]').addEventListener('click', ()=>{
+        appts = appts.filter(a=>a.id!==id);
+        saveAppts(); render();
+      });
+      el.querySelector('[data-act="edit"]').addEventListener('click', ()=>{
+        const area = el.querySelector('.editArea');
+        const isOpen = area.style.display !== 'none';
+        area.style.display = isOpen ? 'none' : 'block';
+        if(!isOpen){
+          area.innerHTML = '<div id="tmpReminderEditor"></div><button class="btn-primary btn-sm" id="tmpSave">💾 حفظ</button>';
+          const cont = area.querySelector('#tmpReminderEditor');
+          renderReminderEditor(cont, appt.reminders, null);
+          area.querySelector('#tmpSave').addEventListener('click', ()=>{
+            saveAppts(); render();
+          });
+        }
+      });
+    });
+  }
+
+  // ---------- إضافة موعد ----------
+  function addAppointment(title, person, date, time, reminders){
+    const a = { id:aid(), title: title || 'موعد بدون عنوان', person: person || '', date, time,
+      reminders: JSON.parse(JSON.stringify(reminders)) };
+    appts.push(a);
+    registerContact(person);
+    saveAppts(); render();
+    return a;
+  }
+
+  document.getElementById('addManual').addEventListener('click', function(){
+    const title = document.getElementById('mTitle').value.trim();
+    const person = document.getElementById('mPerson').value.trim();
+    const date = document.getElementById('mDate').value;
+    const time = document.getElementById('mTime').value;
+    if(!date || !time){ alert('من فضلك اختر التاريخ والوقت.'); return; }
+    addAppointment(title, person, date, time, formReminders);
+    speakSegments([
+      {text:'تم إضافة موعد', lang:'ar-SA'},
+      {text: title, lang: detectLang(title)},
+      person ? {text:'مع', lang:'ar-SA'} : null,
+      person ? {text: person, lang: detectLang(person)} : null
+    ].filter(Boolean));
+    document.getElementById('mTitle').value='';
+    document.getElementById('mPerson').value='';
+    document.getElementById('mDate').value='';
+    document.getElementById('mTime').value='';
+    formReminders = JSON.parse(JSON.stringify(settings.defaultReminders));
+    renderFormReminders();
+  });
+
+  document.getElementById('testVoice').addEventListener('click', function(){
+    speakSegments([{text:'مرحبًا، هذا اختبار للتنبيه الصوتي.', lang:'ar-SA'}]);
+  });
+
+  document.getElementById('readAll').addEventListener('click', function(){
+    const now = new Date();
+    const upcoming = appts.filter(a => new Date(a.date+"T"+a.time) >= now)
+      .sort((a,b)=> new Date(a.date+"T"+a.time) - new Date(b.date+"T"+b.time)).slice(0,5);
+    if(upcoming.length===0){ speakArabic('لا توجد مواعيد قادمة.'); return; }
+    let segs = [{text:'مواعيدك القادمة هي:', lang:'ar-SA'}];
+    upcoming.forEach(a=>{
+      segs.push({text: a.title, lang: detectLang(a.title)});
+      if(a.person){ segs.push({text:'مع', lang:'ar-SA'}); segs.push({text:a.person, lang:detectLang(a.person)}); }
+      segs.push({text: fmtDateTime(a.date,a.time) + '.', lang:'ar-SA'});
+    });
+    speakSegments(segs);
+  });
+
+  // ---------- التعرف الصوتي الموجّه (Wizard) ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micBtn = document.getElementById('micBtn');
+  const wizBox = document.getElementById('wizBox');
+  const wizStatus = document.getElementById('wizStatus');
+  const micHint = document.getElementById('micHint');
+
+  const MONTHS = {'يناير':1,'كانون الثاني':1,'فبراير':2,'شباط':2,'مارس':3,'آذار':3,'أبريل':4,'نيسان':4,
+    'مايو':5,'أيار':5,'يونيو':6,'حزيران':6,'يوليو':7,'تموز':7,'أغسطس':8,'آب':8,
+    'سبتمبر':9,'أيلول':9,'أكتوبر':10,'تشرين الأول':10,'نوفمبر':11,'تشرين الثاني':11,'ديسمبر':12,'كانون الأول':12};
+  const NUM_WORDS = {'واحد':1,'واحدة':1,'اثنين':2,'اثنان':2,'ثلاثة':3,'أربعة':4,'خمسة':5,'ستة':6,'سبعة':7,'ثمانية':8,'تسعة':9,'عشرة':10,
+    'إحدى عشر':11,'اثنا عشر':12,'اثني عشر':12,'ثلاثة عشر':13,'أربعة عشر':14,'خمسة عشر':15,'عشرين':20,'ثلاثين':30,'خمسة وعشرين':25};
+
+  function parseArabicDate(text){
+    const t = text.trim();
+    let day=null, month=null, year=null;
+    const digitDate = t.match(/(\d{1,2})\s*[\/\-]\s*(\d{1,2})(?:\s*[\/\-]\s*(\d{2,4}))?/);
+    if(digitDate){
+      day = parseInt(digitDate[1],10); month = parseInt(digitDate[2],10);
+      if(digitDate[3]) year = parseInt(digitDate[3].length===2 ? '20'+digitDate[3] : digitDate[3],10);
+    } else {
+      const dayMatch = t.match(/\d{1,2}/);
+      if(dayMatch) day = parseInt(dayMatch[0],10);
+      for(const name in MONTHS){ if(t.includes(name)){ month = MONTHS[name]; break; } }
+      const yearMatch = t.match(/\d{4}/);
+      if(yearMatch) year = parseInt(yearMatch[0],10);
+    }
+    if(day===null || month===null) return null;
+    const now = new Date();
+    if(year===null) year = now.getFullYear();
+    let d = new Date(year, month-1, day);
+    if(!year && d < new Date(now.getFullYear(),now.getMonth(),now.getDate())){
+      d = new Date(year+1, month-1, day);
+    }
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  function parseArabicTime(text){
+    const t = text.trim();
+    let hour=null, minute=0;
+    const digitMatch = t.match(/(\d{1,2})(?::(\d{2}))?/);
+    if(digitMatch){ hour = parseInt(digitMatch[1],10); minute = digitMatch[2]?parseInt(digitMatch[2],10):0; }
+    else {
+      for(const w in NUM_WORDS){ if(t.includes(w)){ hour = NUM_WORDS[w]; break; } }
+    }
+    if(hour===null) return null;
+    const isPM = /مساء|مساءً|عصر|ليلا|ليلاً/.test(t);
+    const isAM = /صباحا|صباحًا|الصباح/.test(t);
+    if(isPM && hour<12) hour += 12;
+    if(!isPM && !isAM && hour>=1 && hour<=6) hour += 12;
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(hour)}:${pad(minute)}`;
+  }
+
+  let wizardData = {}, wizardStep = 0, wizardActive = false, recWiz = null;
+  const WIZ_PROMPTS = [
+    'قل اسم الموعد.',
+    'من صاحب الموعد؟ إن لم يكن هناك شخص محدد، قل: تخطي.',
+    'قل يوم وشهر وسنة الموعد. مثلاً خمسة عشر أكتوبر.',
+    'قل وقت الموعد. مثلاً الساعة الخامسة مساء.'
+  ];
+
+  if(!SR){
+    micBtn.disabled = true;
+    micHint.textContent = 'متصفحك لا يدعم التعرف الصوتي. جرّب Chrome، أو استخدم الإضافة اليدوية بالأسفل.';
+  } else {
+    recWiz = new SR();
+    recWiz.lang = 'ar-SA';
+    recWiz.interimResults = false;
+
+    micBtn.addEventListener('click', startWizard);
+    document.getElementById('wizCancel').addEventListener('click', cancelWizard);
+
+    recWiz.onresult = function(e){
+      const text = e.results[0][0].transcript;
+      handleWizardAnswer(text);
+    };
+    recWiz.onerror = function(){
+      if(wizardActive){ askStep('لم أسمعك جيدًا، ' ); }
+    };
+  }
+
+  function startWizard(){
+    wizardData = {title:'', person:'', date:'', time:''};
+    wizardStep = 0;
+    wizardActive = true;
+    micBtn.style.display = 'none';
+    wizBox.classList.add('show');
+    askStep();
+  }
+  function cancelWizard(){
+    wizardActive = false;
+    speechSynthesis.cancel();
+    try{ recWiz.abort(); }catch(e){}
+    micBtn.style.display = 'block';
+    wizBox.classList.remove('show');
+  }
+  function askStep(prefix){
+    if(!wizardActive) return;
+    const promptText = (prefix||'') + WIZ_PROMPTS[wizardStep];
+    wizStatus.textContent = '🗣️ ' + promptText;
+    const u = new SpeechSynthesisUtterance(promptText);
+    u.lang = 'ar-SA';
+    u.onend = function(){ if(wizardActive){ try{ recWiz.start(); }catch(e){} } };
+    speechSynthesis.speak(u);
+  }
+  function handleWizardAnswer(text){
+    if(!wizardActive) return;
+    if(wizardStep===0){
+      wizardData.title = text.trim();
+    } else if(wizardStep===1){
+      wizardData.person = /تخطي|skip/i.test(text) ? '' : text.trim();
+    } else if(wizardStep===2){
+      const parsed = parseArabicDate(text);
+      if(!parsed){ askStep('لم أفهم التاريخ، حاول مجددًا. '); return; }
+      wizardData.date = parsed;
+    } else if(wizardStep===3){
+      const parsed = parseArabicTime(text);
+      if(!parsed){ askStep('لم أفهم الوقت، حاول مجددًا. '); return; }
+      wizardData.time = parsed;
+      finishWizard();
+      return;
+    }
+    wizardStep++;
+    askStep();
+  }
+  function finishWizard(){
+    wizardActive = false;
+    wizBox.classList.remove('show');
+    micBtn.style.display = 'block';
+    const a = addAppointment(wizardData.title, wizardData.person, wizardData.date, wizardData.time, settings.defaultReminders);
+    speakSegments([
+      {text:'تم حفظ الموعد:', lang:'ar-SA'},
+      {text: a.title, lang: detectLang(a.title)},
+      a.person ? {text:'مع', lang:'ar-SA'} : null,
+      a.person ? {text: a.person, lang: detectLang(a.person)} : null,
+      {text: fmtDateTime(a.date, a.time), lang:'ar-SA'}
+    ].filter(Boolean));
+  }
+
+  // ---------- فحص التنبيهات ----------
+  const overlay = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ovTitle');
+  const ovBody = document.getElementById('ovBody');
+  document.getElementById('ovDismiss').addEventListener('click', function(){
+    overlay.classList.remove('show');
+    speechSynthesis.cancel();
+  });
+
+  function announceReminder(appt, label){
+    speakSegments([
+      {text:'تذكير،', lang:'ar-SA'},
+      appt.person ? {text:'لديك موعد مع', lang:'ar-SA'} : {text:'لديك موعد', lang:'ar-SA'},
+      appt.person ? {text: appt.person, lang: detectLang(appt.person)} : null,
+      {text:'بعنوان', lang:'ar-SA'},
+      {text: appt.title, lang: detectLang(appt.title)},
+      {text: label + '.', lang:'ar-SA'}
+    ].filter(Boolean));
+  }
+
+  function triggerReminder(appt, r){
+    const label = reminderLabel(r);
+    overlay.classList.add('show');
+    ovTitle.textContent = '⏰ تذكير: ' + appt.title;
+    ovBody.textContent = (appt.person ? 'مع ' + appt.person + ' — ' : '') + label + ' — ' + fmtDateTime(appt.date, appt.time);
+    pushSystemNotification('⏰ ' + appt.title, (appt.person?'مع '+appt.person+' — ':'') + label, appt.id+'_'+r.id);
+
+    let count = 0;
+    const max = Math.min(Math.max(r.repeat,1), 10);
+    const doAnnounce = () => {
+      announceReminder(appt, label);
+      count++;
+      if(count >= max) clearInterval(timer);
+    };
+    doAnnounce();
+    const timer = setInterval(doAnnounce, 15000);
+  }
+
+  function checkReminders(){
+    const now = new Date();
+    appts.forEach(a=>{
+      const apptTime = new Date(a.date+"T"+a.time);
+      (a.reminders||[]).forEach(r=>{
+        const offsetMs = r.amount * UNIT_MS[r.unit];
+        const triggerTime = new Date(apptTime.getTime() - offsetMs);
+        const key = a.id + '_' + r.id;
+        if(!fired[key] && now >= triggerTime && now <= new Date(triggerTime.getTime()+60000)){
+          fired[key] = true;
+          triggerReminder(a, r);
+        }
+      });
+    });
+    saveFired();
+  }
+
+  // ---------- تهيئة ----------
+  loadAll();
+  applyTheme();
+  refreshContactsDatalist();
+  renderSettingsReminders();
+  renderFormReminders();
+  render();
+  setInterval(checkReminders, 20000);
+  setInterval(render, 60000);
+  checkReminders();
+})();
+</script>
+</body>
+</html>
